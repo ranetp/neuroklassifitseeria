@@ -12,8 +12,21 @@ from keras.preprocessing.text import Tokenizer, text_to_word_sequence
 from keras.preprocessing.sequence import pad_sequences
 
 # Model imports
+from clr_callback import CyclicLR
 from keras.models import Sequential
-from keras.layers import Dense, Embedding, CuDNNLSTM, CuDNNGRU, Dropout
+from keras.layers import (Dense,
+                          Embedding,
+                          CuDNNLSTM,
+                          CuDNNGRU,
+                          GRU,
+                          Bidirectional,
+                          Dropout,
+                          MaxPooling1D,
+                          Conv1D,
+                          GlobalAveragePooling1D,
+                          MaxPooling1D,
+                          Flatten,
+                         )
 
 
 class NeuroClassifier():
@@ -50,7 +63,7 @@ class NeuroClassifier():
         self.X_train = None
         self.index_to_word = None
         self.tokenizer = None
-
+        self.model = None
         # TODO
         # Get data / 
         # Tokenize data [params] / 
@@ -62,11 +75,13 @@ class NeuroClassifier():
     def run(self):
         self._validate_params()
         self._process_data()
-        model = self._get_model()
+        print(self.vocab_size)
+        self._get_model()
+        self._train_model()
 
 
     def _get_model(self):
-        return Models.get_model(self.model_type, self.vocab_size, self.seq_len)
+        self.model = Models(self.model_type, self.vocab_size, self.seq_len).get_model()
 
 
     def _process_data(self):
@@ -88,8 +103,17 @@ class NeuroClassifier():
         final_vocab_size = len(self.tokenizer.word_index)
         if final_vocab_size < self.vocab_size:
             self.vocab_size = final_vocab_size
-    
-    def _validate_params():
+
+
+    def _train_model(self):
+        clr_triangular = CyclicLR(mode='triangular')
+        self.model.fit(self.X_train, self.labels,
+                        batch_size=64,
+                        epochs=5,
+                        verbose=2,
+                        validation_split=self.validation_split)
+
+    def _validate_params(self):
         # TODO validate params
         # If proper, set them
         pass
@@ -113,31 +137,154 @@ class Models():
 
     def get_model(self):
         if self.model_type in self.models_map:
-            return self.models_map[self.model_type](self.vocab_size, self.seq_len)
+            print('got model hehe')
+            return self.models_map[self.model_type]()
         else:
-            raise ValueError(f'{self.model_type} is not a valid model type!')
+            print('WOW dude')
+            raise ValueError(f'"{self.model_type}" is not a valid model type!')
 
     # Simplier models
-    def SimpleFNN():
-        pass
+    def SimpleFNN(self):
+        embed_dim = 128
+        model = Sequential()
+        model.add(Embedding(self.vocab_size, embed_dim, input_length=self.seq_len))
+        model.add(Flatten())
+        model.add(Dropout(0.5))
+        model.add(Dense(32, activation='relu'))
+        model.add(Dropout(0.5))
+        model.add(Dense(1,activation='sigmoid'))
+        model.compile(loss='binary_crossentropy',
+                    optimizer='adam',
+                    metrics=['accuracy'])
 
-    def SimpleCNN():
-        pass
+        return model
 
-    def SimpleGRU():
-        pass
+    def SimpleCNN(self):
+        embed_dim = 128
+
+        model = Sequential()
+        model.add(Embedding(self.vocab_size, embed_dim, input_length=self.seq_len))
+        model.add(Conv1D(32, 7, activation='relu'))
+        model.add(MaxPooling1D(5))
+        model.add(Conv1D(32, 7, activation='relu'))
+        model.add(GlobalAveragePooling1D())
+        model.add(Dense(1, activation='sigmoid'))
+
+        model.compile(loss='binary_crossentropy',
+                    optimizer='adam',
+                    metrics=['accuracy'])
+        return model
+
+    def SimpleGRU(self):
+        embed_dim = 128
+        n_hidden = 32
+
+        model = Sequential()
+        model.add(Embedding(self.vocab_size, embed_dim, input_length=self.seq_len))
+        model.add(CuDNNGRU(n_hidden,))
+        model.add(Dense(1,activation='sigmoid'))
+        model.compile(loss='binary_crossentropy',
+                    optimizer='adam',
+                    metrics = ['accuracy'])
+        return model
     
-    def SimpleLSTM():
-        pass
+    def SimpleLSTM(self):
+        embed_dim = 128
+        n_hidden = 32
+        model = Sequential()
+        model.add(Embedding(self.vocab_size, embed_dim, input_length=self.seq_len))
+        model.add(CuDNNLSTM(n_hidden))
+        model.add(Dense(1,activation='sigmoid'))
+        model.compile(loss='binary_crossentropy',
+                    optimizer='adam',
+                    metrics = ['accuracy'])
+        return model
+
     
     # More complicated
-    def GRUCNN():
-        pass
-    
-    def LSTMCNN():
-        pass
+    def GRUCNN(self):
+        embed_dim = 128
+        model = Sequential()
+        model.add(Embedding(self.vocab_size, embed_dim, input_length=self.seq_len))
+        model.add(Conv1D(32, 7, activation='relu'))
+        model.add(MaxPooling1D(5))
+        model.add(Conv1D(32, 7, activation='relu'))
+        model.add(CuDNNGRU(32))
+        model.add(Dense(1, activation='sigmoid'))
+
+        model.compile(loss='binary_crossentropy',
+                    optimizer='adam',
+                    metrics=['accuracy'])
+        return model
+
+
+    def LSTMCNN(self):
+        embed_dim = 128
+        model = Sequential()
+        model.add(Embedding(self.vocab_size, embed_dim, input_length=self.seq_len))
+        model.add(Conv1D(32, 7, activation='relu'))
+        model.add(MaxPooling1D(5))
+        model.add(Conv1D(32, 7, activation='relu'))
+        model.add(CuDNNLSTM(32))
+        model.add(Dense(1, activation='sigmoid'))
+
+        model.compile(loss='binary_crossentropy',
+                    optimizer='adam',
+                    metrics=['accuracy'])
+        return model
 
     # Full search
     def FullAuto():
         pass
 
+
+if __name__ == '__main__':
+    CROP = 100
+    def read_csv(path):
+        samples = []
+        with open(path, encoding='utf8') as csvfile:
+            spamreader = csv.reader(csvfile)
+            for row in spamreader:
+                samples.append(row[0])
+        return samples
+    pos_samples = read_csv('C:/Users/ranet/Documents/DATA/Datasets/farm_not_farm_text_tagging/farmstuff.csv')[:CROP]
+    neg_samples = read_csv('C:/Users/ranet/Documents/DATA/Datasets/farm_not_farm_text_tagging/notfarmstuff.csv')[:CROP]
+    
+    ## MAKE CLASSES
+    # Combine both, add classes
+    pos_y = [1 for x in range(len(pos_samples))]
+    neg_y = [0 for x in range(len(neg_samples))]
+    print(len(pos_y), len(neg_y))
+    X = pos_samples + neg_samples
+    y = pos_y + neg_y
+
+
+    ### TEST HERE
+    # neuro_classifier = NeuroClassifier(['Hey this is the positive sample', 'Oh and here is the negative one you know'], [1, 0], 100, 3, 'SimpleFNN')
+    neuro_classifier = NeuroClassifier(X, y, 50000, 150, 'SimpleFNN')
+    neuro_classifier.run()
+    print()
+    print()
+    print()
+    neuro_classifier = NeuroClassifier(X, y, 50000, 150, 'SimpleCNN')
+    neuro_classifier.run()
+    print()
+    print()
+    print()
+    neuro_classifier = NeuroClassifier(X, y, 50000, 150, 'SimpleGRU')
+    neuro_classifier.run()
+    print()
+    print()
+    print()
+    neuro_classifier = NeuroClassifier(X, y, 50000, 150, 'SimpleLSTM')
+    neuro_classifier.run()
+    print()
+    print()
+    print()
+    neuro_classifier = NeuroClassifier(X, y, 50000, 150, 'GRUCNN')
+    neuro_classifier.run()
+    print()
+    print()
+    print()
+    neuro_classifier = NeuroClassifier(X, y, 50000, 150, 'LSTMCNN')
+    neuro_classifier.run()
