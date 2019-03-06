@@ -3,8 +3,7 @@ from keras.models import Sequential
 from keras.layers import (Dense,
                           Embedding,
                           CuDNNLSTM,
-                          CuDNNGRU,
-                          GRU,
+                          CuDNNGRU, GRU,
                           Bidirectional,
                           Dropout,
                           MaxPooling1D,
@@ -14,17 +13,22 @@ from keras.layers import (Dense,
                           Flatten,
                          )
 
+from talos.model.layers import hidden_layers
+from talos.model.normalizers import lr_normalizer
+
 class NeuroModels():
     def __init__(self):
         self.models_map = {
-            'SimpleFNN': { 'method': 'manual', 'model': self.SimpleFNN },
-            'SimpleCNN': { 'method': 'manual', 'model': self.SimpleCNN },
-            'SimpleGRU': { 'method': 'manual', 'model': self.SimpleGRU },
-            'SimpleLSTM': { 'method': 'manual', 'model': self.SimpleLSTM },
+            'simpleFNN': { 'method': 'manual', 'model': self.simpleFNN },
+            'simpleCNN': { 'method': 'manual', 'model': self.simpleCNN },
+            'simpleGRU': { 'method': 'manual', 'model': self.simpleGRU },
+            'simpleLSTM': { 'method': 'manual', 'model': self.simpleLSTM },
             'GRUCNN': { 'method': 'manual', 'model': self.GRUCNN },
             'LSTMCNN': { 'method': 'manual', 'model': self.LSTMCNN },
-            'AutoFNN': { 'method': 'auto', 'model': self.AutoFNN },
-            'FullAuto': { 'method': 'auto', 'model': self.FullAuto },
+            'autoFNN': { 'method': 'auto', 'model': self.autoFNN },
+            'autoGRU': { 'method': 'auto', 'model': self.autoGRU },
+            'autoLSTM': { 'method': 'auto', 'model': self.autoLSTM },
+            'autoCNN': { 'method': 'auto', 'model': self.autoCNN },
         }
 
     def get_model(self, model_type):
@@ -36,7 +40,7 @@ class NeuroModels():
 
     # Simplier models
     @staticmethod
-    def SimpleFNN( vocab_size, seq_len):
+    def simpleFNN(vocab_size, seq_len):
         embed_dim = 128
         model = Sequential()
         model.add(Embedding(vocab_size, embed_dim, input_length=seq_len))
@@ -52,7 +56,7 @@ class NeuroModels():
 
 
     @staticmethod
-    def SimpleCNN():
+    def simpleCNN(vocab_size, seq_len):
         embed_dim = 128
         model = Sequential()
         model.add(Embedding(vocab_size, embed_dim, input_length=seq_len))
@@ -69,7 +73,7 @@ class NeuroModels():
 
 
     @staticmethod
-    def SimpleGRU():
+    def simpleGRU(vocab_size, seq_len):
         embed_dim = 128
         n_hidden = 32
         model = Sequential()
@@ -84,7 +88,7 @@ class NeuroModels():
 
 
     @staticmethod
-    def SimpleLSTM():
+    def simpleLSTM(vocab_size, seq_len):
         embed_dim = 128
         n_hidden = 32
         model = Sequential()
@@ -100,7 +104,7 @@ class NeuroModels():
 
     # Combined models
     @staticmethod
-    def GRUCNN():
+    def GRUCNN(vocab_size, seq_len):
         embed_dim = 128
         model = Sequential()
         model.add(Embedding(vocab_size, embed_dim, input_length=seq_len))
@@ -117,7 +121,7 @@ class NeuroModels():
 
 
     @staticmethod
-    def LSTMCNN():
+    def LSTMCNN(vocab_size, seq_len):
         embed_dim = 128
         model = Sequential()
         model.add(Embedding(vocab_size, embed_dim, input_length=seq_len))
@@ -130,36 +134,96 @@ class NeuroModels():
         model.compile(loss='binary_crossentropy',
                     optimizer='adam',
                     metrics=['accuracy'])
+
         return model
 
-    # Auto models
+    # auto models
     @staticmethod
-    def AutoFNN(x_train, y_train):
-        embed_dim = {{ choice([32, 64, 128, 256, 300]) }}
+    def autoFNN(X_train, Y_train, X_val, Y_val, params):
         model = Sequential()
-        model.add(Embedding(vocab_size, embed_dim, input_length=seq_len))
+        model.add(Embedding(params['vocab_size'], params['e_size'], input_length=params['seq_len']))
         model.add(Flatten())
-        model.add(Dropout( {{ uniform(0, 1) }} ))
-        model.add(Dense( {{ choice([32, 64, 128, 256]) }} , activation='relu'))
-        model.add(Dropout(  {{ uniform(0, 1) }}  ))
-        model.add(Dense(1, activation='sigmoid'))
+        hidden_layers(model, params, 1)
+        model.add(Dense(1, activation=params['last_activation']))
 
-        model.compile(loss='binary_crossentropy', metrics=['accuracy'],
-                  optimizer={{ choice(['rmsprop', 'adam', 'sgd'])}})
+        model.compile(optimizer=params['optimizer'](lr_normalizer(params['lr'], params['optimizer'])),
+                    loss='binary_crossentropy',
+                    metrics=['acc'])
 
-        result = model.fit(x_train, y_train,
-              batch_size={{ choice([64, 128]) }},
-              epochs={{ choice([1, 2, 3]) }},
-              verbose=2,
-              validation_split=0.1)
+        out = model.fit(X_train, Y_train,
+                    batch_size=params['batch_size'],
+                    epochs=params['epochs'],
+                    validation_data=[X_val, Y_val],
+                    verbose=2)
 
-        #get the highest validation accuracy of the training epochs
-        validation_acc = np.amax(result.history['val_acc']) 
-        print('Best validation acc of epoch:', validation_acc)
+        return out, model
 
-        return {'loss': -validation_acc, 'status': STATUS_OK, 'model': model}
-
-    # Full search
     @staticmethod
-    def FullAuto():
-        pass
+    def autoCNN(X_train, Y_train, X_val, Y_val, params):
+        model = Sequential()
+        model.add(Embedding(params['vocab_size'], params['e_size'], input_length=params['seq_len']))
+        model.add(Conv1D(32, 7, activation='relu'))
+        model.add(MaxPooling1D(5))
+        model.add(Conv1D(32, 7, activation='relu'))
+        model.add(GlobalAveragePooling1D())
+        model.add(Dropout(params['dropout']))
+        hidden_layers(model, params, 1)
+        model.add(Dense(1, activation=params['last_activation']))
+
+        ## COMPILE
+        model.compile(optimizer=params['optimizer'](lr_normalizer(params['lr'], params['optimizer'])),
+                    loss='binary_crossentropy',
+                    metrics=['acc'])
+
+        out = model.fit(X_train, Y_train,
+                        batch_size=params['batch_size'],
+                        epochs=params['epochs'],
+                        validation_data=[X_val, Y_val],
+                        verbose=2)
+
+        return out, model
+
+
+    @staticmethod
+    def autoGRU(X_train, Y_train, X_val, Y_val, params):
+        model = Sequential()
+        model.add(Embedding(params['vocab_size'], params['e_size'], input_length=params['seq_len']))
+        model.add(CuDNNGRU(params['gru_h_size'],))
+        hidden_layers(model, params, 1)
+        model.add(Dense(1, activation=params['last_activation']))
+
+        ## COMPILE
+        model.compile(optimizer=params['optimizer'](lr_normalizer(params['lr'], params['optimizer'])),
+                    loss='binary_crossentropy',
+                    metrics=['acc'])
+
+        out = model.fit(X_train, Y_train,
+                        batch_size=params['batch_size'],
+                        epochs=params['epochs'],
+                        validation_data=[X_val, Y_val],
+                        verbose=2)
+
+        return out, model
+
+
+    @staticmethod
+    def autoLSTM(X_train, Y_train, X_val, Y_val, params):
+        model = Sequential()
+        model.add(Embedding(params['vocab_size'], params['e_size'], input_length=params['seq_len']))
+        model.add(CuDNNLSTM(params['gru_h_size'],))
+        hidden_layers(model, params, 1)
+        model.add(Dense(1, activation=params['last_activation']))
+
+        ## COMPILE
+        model.compile(optimizer=params['optimizer'](lr_normalizer(params['lr'], params['optimizer'])),
+                    loss='binary_crossentropy',
+                    metrics=['acc'])
+
+        out = model.fit(X_train, Y_train,
+                        batch_size=params['batch_size'],
+                        epochs=params['epochs'],
+                        validation_data=[X_val, Y_val],
+                        verbose=2)
+
+        return out, model
+

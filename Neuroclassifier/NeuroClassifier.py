@@ -14,20 +14,6 @@ from keras.preprocessing.sequence import pad_sequences
 # Model imports
 from clr_callback import CyclicLR
 from keras.models import Sequential
-from keras.layers import (Dense,
-                          Embedding,
-                          CuDNNLSTM,
-                          CuDNNGRU,
-                          GRU,
-                          Bidirectional,
-                          Dropout,
-                          MaxPooling1D,
-                          Conv1D,
-                          GlobalAveragePooling1D,
-                          MaxPooling1D,
-                          Flatten,
-                         )
-
 from NeuroModels import NeuroModels
 
 np.random.seed(1337)
@@ -167,7 +153,7 @@ if __name__ == '__main__':
     # neuro_classifier = NeuroClassifier(X, y, 50000, 150, 'SimpleFNN')
     # neuro_classifier.run()
     
-    neuro_classifier = NeuroClassifier(X, y, 50000, 150, 'AutoFNN')
+    neuro_classifier = NeuroClassifier(X, y, 50000, 150, 'autoFNN')
     neuro_classifier.run()
 
     # print()
