@@ -12,36 +12,39 @@ from keras.layers import (Dense,
                           MaxPooling1D,
                           Flatten,
                          )
+from keras.activations import relu, elu, softmax, sigmoid
+from keras.optimizers import Adam, Nadam
+from keras.losses import categorical_crossentropy, logcosh
 
 from talos.model.layers import hidden_layers
 from talos.model.normalizers import lr_normalizer
 
 class NeuroModels():
     def __init__(self):
+        # Map models to string so they would be easy to call
         self.models_map = {
-            'simpleFNN': { 'method': 'manual', 'model': self.simpleFNN },
-            'simpleCNN': { 'method': 'manual', 'model': self.simpleCNN },
-            'simpleGRU': { 'method': 'manual', 'model': self.simpleGRU },
-            'simpleLSTM': { 'method': 'manual', 'model': self.simpleLSTM },
-            'GRUCNN': { 'method': 'manual', 'model': self.GRUCNN },
-            'LSTMCNN': { 'method': 'manual', 'model': self.LSTMCNN },
-            'autoFNN': { 'method': 'auto', 'model': self.autoFNN },
-            'autoGRU': { 'method': 'auto', 'model': self.autoGRU },
-            'autoLSTM': { 'method': 'auto', 'model': self.autoLSTM },
-            'autoCNN': { 'method': 'auto', 'model': self.autoCNN },
+            'simpleFNN': { 'auto': False, 'model': self.simpleFNN },
+            'simpleCNN': { 'auto': False, 'model': self.simpleCNN },
+            'simpleGRU': { 'auto': False, 'model': self.simpleGRU },
+            'simpleLSTM': { 'auto': False, 'model': self.simpleLSTM },
+            'GRUCNN': { 'auto': False, 'model': self.gruCNN },
+            'LSTMCNN': { 'auto': False, 'model': self.lstmCNN },
+            'autoFNN': { 'auto': True, 'model': self.autoFNN },
+            'autoGRU': { 'auto': True, 'model': self.autoGRU },
+            'autoLSTM': { 'auto': True, 'model': self.autoLSTM },
+            'autoCNN': { 'auto': True, 'model': self.autoCNN },
         }
 
-    def get_model(self, model_type):
-        if model_type in self.models_map:
-            return self.models_map[model_type]
+    def get_model(self, model_arch):
+        if model_arch in self.models_map:
+            return self.models_map[model_arch]
         else:
-            raise ValueError(f'"{model_type}" is not a valid model type!')
-
+            raise ValueError(f'"{model_arch}" is not a valid model architecture!')
 
     # Simplier models
     @staticmethod
     def simpleFNN(vocab_size, seq_len):
-        embed_dim = 128
+        embed_dim = 300
         model = Sequential()
         model.add(Embedding(vocab_size, embed_dim, input_length=seq_len))
         model.add(Flatten())
@@ -57,7 +60,7 @@ class NeuroModels():
 
     @staticmethod
     def simpleCNN(vocab_size, seq_len):
-        embed_dim = 128
+        embed_dim = 200
         model = Sequential()
         model.add(Embedding(vocab_size, embed_dim, input_length=seq_len))
         model.add(Conv1D(32, 7, activation='relu'))
@@ -74,7 +77,7 @@ class NeuroModels():
 
     @staticmethod
     def simpleGRU(vocab_size, seq_len):
-        embed_dim = 128
+        embed_dim = 200
         n_hidden = 32
         model = Sequential()
         model.add(Embedding(vocab_size, embed_dim, input_length=seq_len))
@@ -89,7 +92,7 @@ class NeuroModels():
 
     @staticmethod
     def simpleLSTM(vocab_size, seq_len):
-        embed_dim = 128
+        embed_dim = 200
         n_hidden = 32
         model = Sequential()
         model.add(Embedding(vocab_size, embed_dim, input_length=seq_len))
@@ -104,8 +107,8 @@ class NeuroModels():
 
     # Combined models
     @staticmethod
-    def GRUCNN(vocab_size, seq_len):
-        embed_dim = 128
+    def gruCNN(vocab_size, seq_len):
+        embed_dim = 200
         model = Sequential()
         model.add(Embedding(vocab_size, embed_dim, input_length=seq_len))
         model.add(Conv1D(32, 7, activation='relu'))
@@ -121,8 +124,8 @@ class NeuroModels():
 
 
     @staticmethod
-    def LSTMCNN(vocab_size, seq_len):
-        embed_dim = 128
+    def lstmCNN(vocab_size, seq_len):
+        embed_dim = 200
         model = Sequential()
         model.add(Embedding(vocab_size, embed_dim, input_length=seq_len))
         model.add(Conv1D(32, 7, activation='relu'))
@@ -226,4 +229,3 @@ class NeuroModels():
                         verbose=2)
 
         return out, model
-
