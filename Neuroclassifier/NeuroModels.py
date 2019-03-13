@@ -27,8 +27,8 @@ class NeuroModels():
             'simpleCNN': { 'auto': False, 'model': self.simpleCNN },
             'simpleGRU': { 'auto': False, 'model': self.simpleGRU },
             'simpleLSTM': { 'auto': False, 'model': self.simpleLSTM },
-            'GRUCNN': { 'auto': False, 'model': self.gruCNN },
-            'LSTMCNN': { 'auto': False, 'model': self.lstmCNN },
+            'gruCNN': { 'auto': False, 'model': self.gruCNN },
+            'lstmCNN': { 'auto': False, 'model': self.lstmCNN },
             'autoFNN': { 'auto': True, 'model': self.autoFNN },
             'autoGRU': { 'auto': True, 'model': self.autoGRU },
             'autoLSTM': { 'auto': True, 'model': self.autoLSTM },
@@ -67,6 +67,7 @@ class NeuroModels():
         model.add(MaxPooling1D(5))
         model.add(Conv1D(32, 7, activation='relu'))
         model.add(GlobalAveragePooling1D())
+        model.add(Dropout(0.5))
         model.add(Dense(1, activation='sigmoid'))
 
         model.compile(loss='binary_crossentropy',
@@ -82,6 +83,7 @@ class NeuroModels():
         model = Sequential()
         model.add(Embedding(vocab_size, embed_dim, input_length=seq_len))
         model.add(CuDNNGRU(n_hidden,))
+        model.add(Dropout(0.5))
         model.add(Dense(1,activation='sigmoid'))
 
         model.compile(loss='binary_crossentropy',
@@ -97,6 +99,7 @@ class NeuroModels():
         model = Sequential()
         model.add(Embedding(vocab_size, embed_dim, input_length=seq_len))
         model.add(CuDNNLSTM(n_hidden))
+        model.add(Dropout(0.5))
         model.add(Dense(1,activation='sigmoid'))
 
         model.compile(loss='binary_crossentropy',
@@ -114,7 +117,9 @@ class NeuroModels():
         model.add(Conv1D(32, 7, activation='relu'))
         model.add(MaxPooling1D(5))
         model.add(Conv1D(32, 7, activation='relu'))
+        model.add(Dropout(0.5))
         model.add(CuDNNGRU(32))
+        model.add(Dropout(0.5))
         model.add(Dense(1, activation='sigmoid'))
 
         model.compile(loss='binary_crossentropy',
@@ -131,7 +136,9 @@ class NeuroModels():
         model.add(Conv1D(32, 7, activation='relu'))
         model.add(MaxPooling1D(5))
         model.add(Conv1D(32, 7, activation='relu'))
+        model.add(Dropout(0.5))
         model.add(CuDNNLSTM(32))
+        model.add(Dropout(0.5))
         model.add(Dense(1, activation='sigmoid'))
 
         model.compile(loss='binary_crossentropy',
@@ -191,7 +198,7 @@ class NeuroModels():
     def autoGRU(X_train, Y_train, X_val, Y_val, params):
         model = Sequential()
         model.add(Embedding(params['vocab_size'], params['e_size'], input_length=params['seq_len']))
-        model.add(CuDNNGRU(params['gru_h_size'],))
+        model.add(CuDNNGRU(params['h_size'],))
         hidden_layers(model, params, 1)
         model.add(Dense(1, activation=params['last_activation']))
 
@@ -213,7 +220,7 @@ class NeuroModels():
     def autoLSTM(X_train, Y_train, X_val, Y_val, params):
         model = Sequential()
         model.add(Embedding(params['vocab_size'], params['e_size'], input_length=params['seq_len']))
-        model.add(CuDNNLSTM(params['gru_h_size'],))
+        model.add(CuDNNLSTM(params['h_size'],))
         hidden_layers(model, params, 1)
         model.add(Dense(1, activation=params['last_activation']))
 
